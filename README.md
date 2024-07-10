@@ -83,30 +83,30 @@ python edge.py
 
 目前项目对于文字和以线为基础的图标的识别十分精准
 
-![](data\doc\labelledTextIcon\screenshot_with_ocr1.png)
+![](./data/doc/labelledTextIcon/screenshot_with_ocr1.png)
 
 利用腾讯云的api对图像中的文字进行识别, 注意配置环境变量, 即SECRET_ID和SECRET_KEY, 但是有一些靠近边缘部分而且有背景色的这些文字或图标较难识别.
 
 下面是对于截屏中图像的识别:
 
-![](data\doc\labelledImage\labeled_screenshot1.png)
+![](./data/doc/labelledImage/labeled_screenshot1.png)
 
 从中可以看到, 对于相对分离的图片, 可以准确地对它们进行识别和标记.
 但是有一些情况却很难对图片进行有效的识别, 如下图所示:
 
-![](data\doc\labelledImage\labeled_screenshot2.png)
+![](./data/doc/labelledImage/labeled_screenshot2.png)
 
 当图片边缘图的连通区域和其他连通域相连时, 识别的不准确, 尤其是和边框相连.
 
 那么也有可能图片和图片相连,如下图所示:
 
-![](data\doc\labelledImage\labeled_screenshot3.png)
+![](./data/doc/labelledImage/labeled_screenshot3.png)
 
 从图中可以看出即使是图片相叠加, 也是可以识别出图像区域的, 但是和边界连通区相连时, 会被识别为边界.
 
 也许可以尝试限定边缘像素的位置, 因为其实处于下方边栏部分的边缘像素对于图像的识别没有什么帮助.
 
-![](data\doc\labelledImage\labeled_screenshot4.png)
+![](./data/doc/labelledImage/labeled_screenshot4.png)
 
 在上图中我们可以看出, 图像如果和右边框相连, 那么也会被识别为用于分割的直线连通区域
 
