@@ -1,7 +1,17 @@
+import base64
+import json
+import os
 import time
+from io import BytesIO
+
 import numpy as np
-from PIL import ImageGrab, Image
+from PIL import ImageGrab, Image, ImageDraw, ImageFont
 from sklearn.linear_model import LinearRegression
+from tencentcloud.common import credential
+from tencentcloud.common.exception import TencentCloudSDKException
+from tencentcloud.common.profile.client_profile import ClientProfile
+from tencentcloud.common.profile.http_profile import HttpProfile
+from tencentcloud.ocr.v20181119 import ocr_client, models
 
 
 def capture_screen():
@@ -12,6 +22,67 @@ def capture_screen():
     screenshot = ImageGrab.grab()
     screenshot.save("screenshot0.png")
     return screenshot
+
+
+def convert_image_to_base64(image):
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode('ascii')
+
+
+def get_ocr_results(screenshot):
+    image_base64 = convert_image_to_base64(screenshot)
+
+    """Get OCR results from Tencent Cloud OCR for the given base64 image."""
+    try:
+        # Load credentials from environment variables
+        SecretId = os.getenv("SECRET_ID")
+        SecretKey = os.getenv("SECRET_KEY")
+
+        cred = credential.Credential(SecretId, SecretKey)
+
+        # Setup HTTP and client profile
+        httpProfile = HttpProfile()
+        httpProfile.endpoint = "ocr.tencentcloudapi.com"
+        clientProfile = ClientProfile()
+        clientProfile.httpProfile = httpProfile
+
+        # Create OCR client
+        client = ocr_client.OcrClient(cred, "ap-shanghai", clientProfile)
+
+        # Prepare request
+        req = models.GeneralBasicOCRRequest()
+        params = {"ImageBase64": image_base64}
+        req.from_json_string(json.dumps(params))
+
+        # Execute request and return results
+        resp = client.GeneralBasicOCR(req)
+        return json.loads(resp.to_json_string())
+    except TencentCloudSDKException as err:
+        return str(err)
+
+
+def add_ocr_results_to_image(image, ocr_results):
+    """Add OCR results to the image."""
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+
+    if 'TextDetections' in ocr_results:
+        for item in ocr_results['TextDetections']:
+            text = item['DetectedText']
+            item_polygon = item.get('ItemPolygon', {})
+            x = item_polygon.get('X', 0)
+            y = item_polygon.get('Y', 0)
+            width = item_polygon.get('Width', 0)
+            height = item_polygon.get('Height', 0)
+
+            # Draw bounding box
+            draw.rectangle([x, y, x + width, y + height], outline="red", width=2)
+
+            # Draw text within the bounding box
+            draw.text((x, y), text, fill="red", font=font)
+
+    return image
 
 
 def simple_difference_edge_detection(image):
@@ -336,12 +407,19 @@ def main():
     screenshot = capture_screen()
     print("Screenshot saved as 'screenshot0.png'")
 
+    ocr_results = get_ocr_results(screenshot)
+    print(ocr_results)
+    image_with_ocr = add_ocr_results_to_image(screenshot, ocr_results)
+    output_path = "screenshot_with_ocr.png"
+    image_with_ocr.save(output_path)
+    print(f"OCR results added to image and saved as {output_path}")
+
     # Step 2: Convert screenshot to edge map and get the position of edged elements
     edge_map, edge_positions = simple_difference_edge_detection(screenshot)
 
     # Step 3: Save the edge map
-    # save_image(edge_map, 'edge_map0.png')
-    # print("Edge map saved as 'edge_map0.png'")
+    save_image(edge_map, 'edge_map0.png')
+    print("Edge map saved as 'edge_map0.png'")
 
     # Step 4: classify the type of edged elements
     text_icon_positions, straight_line_positions, irregular_large_positions = classify_edge_positions(edge_positions)
