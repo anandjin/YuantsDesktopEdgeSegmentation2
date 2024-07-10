@@ -77,10 +77,9 @@ def add_ocr_results_to_image(image, ocr_results):
             height = item_polygon.get('Height', 0)
 
             # Draw bounding box
-            draw.rectangle([x, y, x + width, y + height], outline="red", width=2)
-
-            # Draw text within the bounding box
-            draw.text((x, y), text, fill="red", font=font)
+            draw.rectangle([x, y, x + width, y + height], outline="blue", width=2)
+            # # Draw text within the bounding box
+            # draw.text((x, y), text, fill="red", font=font)
 
     return image
 
@@ -213,7 +212,7 @@ def classify_edge_positions(edge_positions):
     if max_y is None:
         return []
 
-    text_icon_positions = []
+    # text_icon_positions = []
     straight_line_positions = set()
     irregular_large_positions = []
 
@@ -233,7 +232,7 @@ def classify_edge_positions(edge_positions):
                 area = len(component_pixels)
                 aspect_ratio = width / height
                 total_pixels = len(edge_positions)
-                area_threshold = total_pixels / 20
+                area_threshold = total_pixels / 23
 
                 # Calculate bounding box area
                 bounding_box_area = width * height
@@ -244,19 +243,19 @@ def classify_edge_positions(edge_positions):
                     if 0.3 <= aspect_ratio <= 3:
                         irregular_large_positions.extend(component_pixels)
 
-                if (0.3 <= aspect_ratio <= 20) and (10 <= area <= 5000):
-                    if area / bounding_box_area >= 0.25:
-                        text_icon_positions.extend(component_pixels)
+                # if (0.3 <= aspect_ratio <= 20) and (10 <= area <= 5000):
+                #     if area / bounding_box_area >= 0.25:
+                #         text_icon_positions.extend(component_pixels)
 
                 else:
-                    if 0 < area / bounding_box_area <= 0.2 and area >= 2000:
+                    if 0 < area / bounding_box_area <= 0.3 and area >= 2000:
                         segments = split_into_segments(component_pixels)
                         for segment in segments:
                             if is_straight_line(segment, direction='horizontal') or is_straight_line(segment,
                                                                                                      direction='vertical'):
                                 straight_line_positions.update(segment)
 
-    return text_icon_positions, list(straight_line_positions), irregular_large_positions
+    return list(straight_line_positions), irregular_large_positions
 
 
 def extract_text_and_icons(input_img, text_icon_positions):
@@ -373,6 +372,34 @@ def merge_info(edge_info, new_text_icon_info, straight_lines_info, red_boxes_inf
     return merged_info
 
 
+def merge_info2(screenshot, straight_lines_info, red_boxes_info):
+    # 将所有像素信息转换为字典，方便查找
+    straight_lines_dict = {pos: color for pos, color in straight_lines_info}
+    red_boxes_dict = {pos: color for pos, color in red_boxes_info}
+
+    # 创建集合用于快速查找
+    straight_lines_set = set(straight_lines_dict.keys())
+    red_boxes_set = set(red_boxes_dict.keys())
+
+    # 获取图像的像素数据
+    pixels = screenshot.load()
+    width, height = screenshot.size
+
+    for y in range(height):
+        for x in range(width):
+            pos = (y, x)
+            if pos in red_boxes_set:
+                new_color = red_boxes_dict[pos]
+            elif pos in straight_lines_set:
+                new_color = straight_lines_dict[pos]
+            else:
+                new_color = pixels[x, y]  # 保持原始颜色
+
+            pixels[x, y] = new_color
+
+    return screenshot
+
+
 def save_image(data, filename):
     # Use PIL to save the binary image
     img = Image.fromarray(data * 255)  # Convert binary data to a format suitable for saving
@@ -402,17 +429,21 @@ def save_visualization_image(merged_info, filename):
     img.save(filename)
 
 
+def save_visualization_image2(image, filename):
+    """
+    Save the modified image to a file.
+
+    :param image: Image object with merged information
+    :param filename: Filename to save the image
+    """
+    # 直接保存传入的 Image 对象
+    image.save(filename)
+
+
 def main():
     # Step 1: Capture the screen
     screenshot = capture_screen()
     print("Screenshot saved as 'screenshot0.png'")
-
-    ocr_results = get_ocr_results(screenshot)
-    print(ocr_results)
-    image_with_ocr = add_ocr_results_to_image(screenshot, ocr_results)
-    output_path = "screenshot_with_ocr.png"
-    image_with_ocr.save(output_path)
-    print(f"OCR results added to image and saved as {output_path}")
 
     # Step 2: Convert screenshot to edge map and get the position of edged elements
     edge_map, edge_positions = simple_difference_edge_detection(screenshot)
@@ -421,26 +452,34 @@ def main():
     save_image(edge_map, 'edge_map0.png')
     print("Edge map saved as 'edge_map0.png'")
 
-    # Step 4: classify the type of edged elements
-    text_icon_positions, straight_line_positions, irregular_large_positions = classify_edge_positions(edge_positions)
+    # Step 4: Extract text and save as
+    ocr_results = get_ocr_results(screenshot)
+    print(ocr_results)
+    image_with_ocr = add_ocr_results_to_image(screenshot, ocr_results)
+    output_path = "screenshot_with_ocr.png"
+    image_with_ocr.save(output_path)
+    print(f"OCR results added to image and saved as {output_path}")
 
-    # Step 5: extract text and icons
-    new_text_icon_info = extract_text_and_icons(screenshot, text_icon_positions)
+    # Step 5: classify the type of edged elements
+    straight_line_positions, irregular_large_positions = classify_edge_positions(edge_positions)
 
-    # Step 6: add label to straight lines
+    # # Step 5: extract text and icons
+    # new_text_icon_info = extract_text_and_icons(screenshot, text_icon_positions)
+
+    # Step 7: add label to straight lines
     straight_lines_info = add_label_to_straight_lines_info(straight_line_positions)
 
-    # Step 7: label natural pics
+    # Step 8: label natural pics
     red_boxes_info = add_label_boxes_info(irregular_large_positions)
 
     # Step 8: get edge_map info
     edge_info = edge_map_to_info(edge_map)
 
     # Step 9: merge 4 info and get pic
-    merged_info = merge_info(edge_info, new_text_icon_info, straight_lines_info, red_boxes_info)
+    merged_info = merge_info2(screenshot, straight_lines_info, red_boxes_info)
 
     # Step 10: Save merged_info as a visualization image
-    save_visualization_image(merged_info, "labeled_screenshot0.png")
+    save_visualization_image2(merged_info, "labeled_screenshot0.png")
     print("Merged info saved as 'labeled_screenshot0.png'")
 
 
