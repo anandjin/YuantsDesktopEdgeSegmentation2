@@ -233,7 +233,7 @@ def classify_edge_positions(edge_positions, edge_map):
 
     # 创建变量 edge_positions_image
     edge_positions_image = [(y, x) for y, x in edge_positions if
-                            (20 / 2560) * total_width < x < (2460 / 2560) * total_width and (116 / 1440) * total_height < y < (1330 / 1440) * total_height]
+                            (40 / 2560) * total_width < x < (2460 / 2560) * total_width and (135 / 1440) * total_height < y < (1335 / 1440) * total_height]
 
     edge_positions_line = set((y, x) for y, x in edge_positions if
                               y < (1370 / 1440) * total_height)
@@ -258,12 +258,12 @@ def classify_edge_positions(edge_positions, edge_map):
                 height = max_y - min_y + 1
                 area = len(component_pixels)
                 aspect_ratio = width / height
-                area_threshold = total_pixels / 55
+                area_threshold = total_pixels / 100
 
                 # Calculate bounding box area
                 bounding_box_area = width * height
 
-                if area / bounding_box_area >= 0.5 and area >= area_threshold:  # Adjust the threshold to identify
+                if area / bounding_box_area >= 0.3 and area >= area_threshold:  # Adjust the threshold to identify
                     # large irregular shapes
                     # If the component is Large and irregular in position
 
