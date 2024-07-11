@@ -207,16 +207,88 @@ def get_image_dimensions(positions):
     return max_y, max_x, visited, position_set
 
 
-def classify_edge_positions(edge_positions):
-    max_y, max_x, visited, edge_set = get_image_dimensions(edge_positions)
-    if max_y is None:
-        return []
+def get_image_dimensions2(positions):
+    if not positions:
+        return None, None, np.zeros((1, 1), dtype=bool), set()
+
+    # 确保 positions 是一个集合
+    positions = set(positions)
+
+    max_y = max(y for y, x in positions) + 1
+    max_x = max(x for y, x in positions) + 1
+
+    visited = np.zeros((max_y, max_x), dtype=bool)
+    position_set = positions
+
+    return max_y, max_x, visited, position_set
+
+
+def classify_edge_positions(edge_positions, edge_map):
+    total_pixels = edge_map.size
+    total_height, total_width = edge_map.shape
 
     # text_icon_positions = []
     straight_line_positions = set()
     irregular_large_positions = []
 
-    for (y, x) in edge_positions:
+    # 创建变量 edge_positions_image
+    edge_positions_image = [(y, x) for y, x in edge_positions if
+                            (20 / 2560) * total_width < x < (2460 / 2560) * total_width and (116 / 1440) * total_height < y < (1330 / 1440) * total_height]
+
+    edge_positions_line = set((y, x) for y, x in edge_positions if
+                              y < (1370 / 1440) * total_height)
+
+    max_y, max_x, visited, edge_set = get_image_dimensions(edge_positions_image)
+    if max_y is None:
+        return []
+
+    for (y, x) in edge_positions_image:
+        if not visited[y, x]:
+            component_pixels = bfs(y, x, edge_set, visited)
+            if component_pixels:
+
+                component_pixels.sort()  # 对连通区域的像素列表进行排序
+                y_coords = [pos[0] for pos in component_pixels]
+                x_coords = [pos[1] for pos in component_pixels]
+
+                # Geometric properties
+                min_y, max_y = min(y_coords), max(y_coords)
+                min_x, max_x = min(x_coords), max(x_coords)
+                width = max_x - min_x + 1
+                height = max_y - min_y + 1
+                area = len(component_pixels)
+                aspect_ratio = width / height
+                area_threshold = total_pixels / 55
+
+                # Calculate bounding box area
+                bounding_box_area = width * height
+
+                if area / bounding_box_area >= 0.5 and area >= area_threshold:  # Adjust the threshold to identify
+                    # large irregular shapes
+                    # If the component is Large and irregular in position
+
+                    if 0.1 <= aspect_ratio <= 10:
+                        # 从 edge_positions_line 中删除 component_pixels 中的坐标
+                        edge_positions_line -= set(component_pixels)
+                        irregular_large_positions.extend(component_pixels)
+
+                # if (0.3 <= aspect_ratio <= 20) and (10 <= area <= 5000):
+                #     if area / bounding_box_area >= 0.25:
+                #         text_icon_positions.extend(component_pixels)
+
+                # else:
+                #     if 0 < area / bounding_box_area <= 0.3 and area >= 2000:
+                #         segments = split_into_segments(component_pixels)
+                #         for segment in segments:
+                #             if is_straight_line(segment, direction='horizontal') or is_straight_line(segment,
+                #                                                                                      direction='vertical'):
+                #                 straight_line_positions.update(segment)
+
+    max_y, max_x, visited, edge_set = get_image_dimensions(edge_positions_line)
+    if max_y is None:
+        return []
+
+    for (y, x) in edge_positions_line:
         if not visited[y, x]:
             component_pixels = bfs(y, x, edge_set, visited)
             if component_pixels:
@@ -231,29 +303,17 @@ def classify_edge_positions(edge_positions):
                 height = max_y - min_y + 1
                 area = len(component_pixels)
                 aspect_ratio = width / height
-                total_pixels = len(edge_positions)
-                area_threshold = total_pixels / 23
+                area_threshold = total_pixels / 55
 
                 # Calculate bounding box area
                 bounding_box_area = width * height
 
-                if area / bounding_box_area >= 0.6 and area >= area_threshold:  # Adjust the threshold to identify
-                    # large irregular shapes
-                    # If the component is Large and irregular in position
-                    if 0.3 <= aspect_ratio <= 3:
-                        irregular_large_positions.extend(component_pixels)
-
-                # if (0.3 <= aspect_ratio <= 20) and (10 <= area <= 5000):
-                #     if area / bounding_box_area >= 0.25:
-                #         text_icon_positions.extend(component_pixels)
-
-                else:
-                    if 0 < area / bounding_box_area <= 0.3 and area >= 2000:
-                        segments = split_into_segments(component_pixels)
-                        for segment in segments:
-                            if is_straight_line(segment, direction='horizontal') or is_straight_line(segment,
-                                                                                                     direction='vertical'):
-                                straight_line_positions.update(segment)
+                if 0 < area / bounding_box_area <= 0.3 and area >= 2000:
+                    segments = split_into_segments(component_pixels)
+                    for segment in segments:
+                        if is_straight_line(segment, direction='horizontal') or is_straight_line(segment,
+                                                                                                 direction='vertical'):
+                            straight_line_positions.update(segment)
 
     return list(straight_line_positions), irregular_large_positions
 
@@ -461,9 +521,9 @@ def main():
     print(f"OCR results added to image and saved as {output_path}")
 
     # Step 5: classify the type of edged elements
-    straight_line_positions, irregular_large_positions = classify_edge_positions(edge_positions)
+    straight_line_positions, irregular_large_positions = classify_edge_positions(edge_positions, edge_map)
 
-    # # Step 5: extract text and icons
+    # # Step : extract text and icons
     # new_text_icon_info = extract_text_and_icons(screenshot, text_icon_positions)
 
     # Step 7: add label to straight lines
@@ -472,7 +532,7 @@ def main():
     # Step 8: label natural pics
     red_boxes_info = add_label_boxes_info(irregular_large_positions)
 
-    # Step 8: get edge_map info
+    # Step : get edge_map info
     edge_info = edge_map_to_info(edge_map)
 
     # Step 9: merge 4 info and get pic
