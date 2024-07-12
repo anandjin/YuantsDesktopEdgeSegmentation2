@@ -20,7 +20,7 @@ def capture_screen():
 
     # Capture the entire screen
     screenshot = ImageGrab.grab()
-    screenshot.save("screenshot0.png")
+    screenshot.save("edge/screenshot0.png")
     return screenshot
 
 
@@ -509,14 +509,14 @@ def main():
     edge_map, edge_positions = simple_difference_edge_detection(screenshot)
 
     # Step 3: Save the edge map
-    save_image(edge_map, 'edge_map0.png')
+    save_image(edge_map, 'edge/edge_map0.png')
     print("Edge map saved as 'edge_map0.png'")
 
     # Step 4: Extract text and save as
     ocr_results = get_ocr_results(screenshot)
     print(ocr_results)
     image_with_ocr = add_ocr_results_to_image(screenshot, ocr_results)
-    output_path = "screenshot_with_ocr.png"
+    output_path = "edge/screenshot_with_ocr.png"
     image_with_ocr.save(output_path)
     print(f"OCR results added to image and saved as {output_path}")
 
@@ -539,7 +539,7 @@ def main():
     merged_info = merge_info2(screenshot, straight_lines_info, red_boxes_info)
 
     # Step 10: Save merged_info as a visualization image
-    save_visualization_image2(merged_info, "labeled_screenshot0.png")
+    save_visualization_image2(merged_info, "edge/labeled_screenshot0.png")
     print("Merged info saved as 'labeled_screenshot0.png'")
 
 

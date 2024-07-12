@@ -162,7 +162,7 @@ python edge.py
 
 尝试不同的方法对图像进行以颜色为基础的图像分割
 
-1. 阈值转换法:
+阈值转换法:
 
 color_distribution_thresholding.py
 
@@ -190,6 +190,32 @@ upper_bound = np.array([85, 255, 255])  # 示例值，需要根据实际情况�
 ```
 
 那么我们考虑优化此算法或将其替换.
+
+下面采用直方图分析法
+
+color_distribution_histogram.py
+
+在此文件中使用了直方图分析法对图像进行分割
+
+直方图分析法是在阈值转换法的基础上改进的方法,图像转换为HSV颜色空间后,计算色调直方图,找到直方图的峰值,例子中我选择的是前十的峰值, 合并完这些掩码之后,再应用到原始的图像上
+
+![](./data/doc/color_distribution_histogram/screenshot1.png)
+
+![](./data/doc/color_distribution_histogram/output_image_hsv1.jpg)
+
+![](./data/doc/color_distribution_histogram/output_mask1.jpg)
+
+![](./data/doc/color_distribution_histogram/output_mask_result1.jpg)
+
+像使用阈值转换法一样对图像进行处理后, 从上图中可以看出已经将直方图中前十的色调选出并合并到原图. 但是此法还是有不小的局限性, 因为HSV的色调不能显示所有的颜色, 比如:
+
+1. **白色**：在HSV中，白色的饱和度为0，但是明度为最大值，这使得白色在该模型中不太容易定义
+2. **黑色**：类似地，黑色的饱和度也为0，但明度为最小值，这也让黑色在HSV中不太容易描述
+3. **灰色**：灰色是介于白色和黑色之间的中间色，它在HSV中的表示也可能不够准确
+4. **粉色**：粉色是一种柔和的颜色，它可能需要通过多个色相值来描述，因为它不是单一的色相
+5. **棕色**：棕色是由多种颜色混合而成，这种混合色在HSV中可能需要多个参数来描述
+
+所以, 此方法存在一定局限性
 
 ## 5. 联系信息
 

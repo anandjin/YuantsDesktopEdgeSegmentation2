@@ -1,5 +1,5 @@
 import time
-
+from scipy.signal import find_peaks
 import cv2
 import numpy as np
 from PIL import ImageGrab
@@ -29,15 +29,33 @@ if image_np.shape[2] == 3:  # 检查是否为彩色图像
 hsv_image = cv2.cvtColor(image_np, cv2.COLOR_BGR2HSV)
 cv2.imwrite('color_distribution_thresholding/output_image_hsv1.jpg', hsv_image)
 
-# 设置HSV阈值范围
-lower_bound = np.array([35, 100, 100])  # 示例值，需要根据实际情况调整
-upper_bound = np.array([85, 255, 255])  # 示例值，需要根据实际情况调整
+# 计算色调直方图
+hist = cv2.calcHist([hsv_image], [0], None, [180], [0, 179])
+hist = hist.flatten()
 
-# 应用阈值分割
-mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
+# 找到直方图的峰值
+peaks, _ = find_peaks(hist, height=0.01*hist.max(), distance=10)
+
+# 选择前几大峰值
+num_colors = 10  # 选择主要颜色的数量
+main_colors = peaks[np.argsort(hist[peaks])[-num_colors:]]
+
+# 创建掩码并进行颜色分割
+masks = []
+for color in main_colors:
+    lower_bound = np.array([color - 10, 100, 100])
+    upper_bound = np.array([color + 10, 255, 255])
+    mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
+    masks.append(mask)
+
+# 合并掩码
+combined_mask = np.zeros_like(masks[0])
+for mask in masks:
+    combined_mask = cv2.bitwise_or(combined_mask, mask)
+
 
 # 应用掩码到原始图像
-result_image = cv2.bitwise_and(image_np, image_np, mask=mask)
+result_image = cv2.bitwise_and(image_np, image_np, mask=combined_mask)
 
-cv2.imwrite('color_distribution_thresholding/output_mask1.jpg', mask)
+cv2.imwrite('color_distribution_thresholding/output_mask1.jpg', combined_mask)
 cv2.imwrite('color_distribution_thresholding/output_mask_result1.jpg', result_image)
