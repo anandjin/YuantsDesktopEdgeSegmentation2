@@ -158,5 +158,38 @@ python edge.py
 
 现在该项目对于两者的识别适用于边缘较为分散的情况, 但是准确度较之前有了很大的提高
 
+2024-7-12
+
+尝试不同的方法对图像进行以颜色为基础的图像分割
+
+1. 阈值转换法:
+
+color_distribution_thresholding.py
+
+![](./data/doc/color_distribution_thresholding/screenshot1.png)
+
+在此文件中使用了阈值转换的方法对图像进行分割
+
+对截图先进行颜色空间的转换(HSV：色调、饱和度、亮度)
+
+![](./data/doc/color_distribution_thresholding/output_image_hsv1.jpg)
+
+而后作为测试, 将所有绿色的像素提取出来
+
+![](./data/doc/color_distribution_thresholding/output_mask1.jpg)
+
+我们可以看出提取的位置还是比较准确的, 下面是合并完之后的结果
+
+![](./data/doc/color_distribution_thresholding/output_mask_result1.jpg)
+
+但是阈值通常是人为设计的, 所以不能根据每张图片来变化阈值
+
+```python
+lower_bound = np.array([35, 100, 100])  # 示例值，需要根据实际情况调整
+upper_bound = np.array([85, 255, 255])  # 示例值，需要根据实际情况调整
+```
+
+那么我们考虑优化此算法或将其替换.
+
 ## 5. 联系信息
 
