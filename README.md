@@ -217,5 +217,27 @@ color_distribution_histogram.py
 
 所以, 此方法存在一定局限性
 
+又尝试了Region Growing Image Segmentation方法
+
+先获取截图的10种像素最多的颜色以及它们的坐标, 对每种颜色，使用OpenCV的`connectedComponentsWithStats`函数查找连通域。记录每个连通域的大小、掩码、统计信息（包括位置和尺寸）。按连通域大小排序，并选择前10个最大的连通域。使用OpenCV绘制边界框。保存结果图像。
+
+关键点:
+
+为了解决内存分配问题:
+
+**逐块处理图像**：在 `find_all_connected_components` 函数中，将图像分割成更小的块（如 512x512），逐块处理以减少内存占用。
+
+**逐步合并结果**：在主循环中，逐步处理每个块的连通域，并直接应用于主掩码。
+
+**避免大数组分配**：不再一次性创建大尺寸的 `full_component_mask`，而是在主循环中处理块级别的连通域。
+
+实例如下:
+
+![](./data/doc/color_distribution_regionGrowing/screenshot1.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image1.png)
+
+因为内存的原因, 所以将本来可能大的连通域分割成小的区域所以导致大块的颜色连通域不完整, 这是需要进一步改进的
+
 ## 5. 联系信息
 
