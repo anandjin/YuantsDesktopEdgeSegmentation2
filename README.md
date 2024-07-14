@@ -239,5 +239,81 @@ color_distribution_histogram.py
 
 因为内存的原因, 所以将本来可能大的连通域分割成小的区域所以导致大块的颜色连通域不完整, 这是需要进一步改进的
 
+2024-7-13 to 2024-7-14
+
+起初将图像分割成更小的块（如 512x512），逐块处理以减少内存占用.
+
+这样确实可以防止内存占用过大而导致程序无法正常运行.
+
+但是, 这样同样会导致本来颜色一致的连通域被分割成了小块. 如上图所示.
+
+并且用框框住的连通域也会相互交叉, 不能达到分割的目的, 如下图所示:
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes1.png)
+
+而后为了改善这种情况对原有的代码进行了优化:
+
+1. 捕获屏幕图像
+2. 获取图像中的主要颜色和坐标
+3. 对图像进行颜色聚类
+
+使用K-means聚类算法对图像进行颜色聚类，将图像的颜色分为`n_clusters`类. 
+
+这样可以使得颜色不同但相似的颜色归类为一种颜色. 从而减少颜色的种类, 减小连通域的数量
+
+n_clusters越大, 那么各个颜色的分离度就越高, 颜色种类就越多, 反之各个颜色的分离度就越低, 颜色种类就越少
+
+4. 查找特定颜色的连通域
+
+在此查找时, 我们是对全图范围内进行查找, 因为分块查找的话会导致有的连通域被分割从而使得连通域变小
+
+5. 判断两个连通域是否相邻
+6. 判断两个颜色是否相似
+
+在这里, 我们设置了is_similar_color函数用来判断颜色是否相近
+
+原理:
+
+假设有两个颜色，`color1 = (255, 0, 0)`（红色）和 `color2 = (250, 5, 5)`（稍微偏暗的红色）。我们计算它们之间的欧氏距离：
+
+distance=RGB三值作差后分别平方的和开根号=tolerance
+
+8.  合并相邻的连通域(根据相似性)
+9. 保留图像中最大的连通域, 并绘制边框
+
+效果如下:
+
+我们可以看到, 此种方法的分割表现十分良好, 但是有一个问题, 就是在寻找连通域时会消耗巨大内存导致无法执行完程序.
+
+![](./data/doc/color_distribution_regionGrowing/screenshot2.png)
+
+![](./data/doc/color_distribution_regionGrowing/clustered_image2.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image2.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes2.png)
+
+所以我们需要对找连通域的操作进行优化而又不能使用分块操作, 因为分块后连通域会变小而且由于分块像素的位置会发生变化, 需要额外调整, 但是效果并不好, 会出现和原图像素不重叠的情况
+
+在寻找连通域时使用深度优先搜索, 这样可以避免占用内存过大而导致程序崩溃.
+
+这样做的前提是已经知道了所需颜色的所有坐标.
+
+那么效果如下:
+
+![](./data/doc/color_distribution_regionGrowing/screenshot3.png)
+
+![](./data/doc/color_distribution_regionGrowing/clustered_image3.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image3.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes3.png)
+
+我们可以看到对于颜色的分割还是十分精准的, 因为我设置分类颜色为2类, 所以颜色会比较单一, 但是可以调整参数来实现不同目标.
+
+
+
+目前还需完善区域的包含和被包含关系, 用于注意力机制. 运行时长有些长, 可以进一步优化.
+
 ## 5. 联系信息
 

@@ -9,11 +9,11 @@ def capture_screen():
     print("等待3秒后开始截屏...")
     time.sleep(3)  # 延迟3秒，用于切换窗口
     screenshot = ImageGrab.grab()
-    screenshot.save("color_distribution_regionGrowing/screenshot1.png")
-    print("截屏完成，保存为 screenshot1.png")
+    screenshot.save("color_distribution_regionGrowing/screenshot0.png")
+    print("截屏完成，保存为 screenshot0.png")
     return screenshot
 
-def get_top_colors_with_coordinates(image_path, top_n=10):
+def get_top_colors_with_coordinates(image_path, top_n=5):
     start_time = time.time()
     print(f"读取图像 {image_path} ...")
     img = cv2.imread(image_path)
@@ -47,7 +47,7 @@ def get_top_colors_with_coordinates(image_path, top_n=10):
     print(f"找到了前 {top_n} 种颜色，耗时 {end_time - start_time:.2f} 秒")
     return top_colors, color_coords
 
-def apply_color_clustering(image_path, n_clusters=3):
+def apply_color_clustering(image_path, n_clusters=6):
     start_time = time.time()
     print(f"对图像 {image_path} 进行颜色聚类...")
 
@@ -100,7 +100,7 @@ def are_adjacent(pixels1, pixels2):
                 return True
     return False
 
-def is_similar_color(color1, color2, tolerance=10):
+def is_similar_color(color1, color2, tolerance=2):
     return np.linalg.norm(np.array(color1) - np.array(color2)) <= tolerance
 
 def merge_components(components):
@@ -180,14 +180,14 @@ def keep_largest_components(image_path, top_colors_n=5, largest_components_n=10,
     overall_start_time = time.time()
 
     # 对图像进行颜色聚类
-    clustered_img = apply_color_clustering(image_path, n_clusters=2)
+    clustered_img = apply_color_clustering(image_path, n_clusters=6)
 
     # 将聚类后的图像保存以便检查
-    cv2.imwrite('color_distribution_regionGrowing/clustered_image.png', cv2.cvtColor(clustered_img, cv2.COLOR_RGB2BGR))
-    print("保存聚类后的图像到 clustered_image.png")
+    cv2.imwrite('color_distribution_regionGrowing/clustered_image0.png', cv2.cvtColor(clustered_img, cv2.COLOR_RGB2BGR))
+    print("保存聚类后的图像到 clustered_image0.png")
 
     # 获取聚类后的图像中的前 N 种颜色及其坐标
-    top_colors, color_coords = get_top_colors_with_coordinates('color_distribution_regionGrowing/clustered_image.png', top_colors_n)
+    top_colors, color_coords = get_top_colors_with_coordinates('color_distribution_regionGrowing/clustered_image0.png', top_colors_n)
     img_rgb = clustered_img
     all_components = find_all_connected_components(color_coords)
 
@@ -212,11 +212,11 @@ def keep_largest_components(image_path, top_colors_n=5, largest_components_n=10,
 
     result_img[combined_mask == 255] = img_rgb[combined_mask == 255]
 
-    save_path = 'color_distribution_regionGrowing/result_image1.png'
+    save_path = 'color_distribution_regionGrowing/result_image0.png'
     cv2.imwrite(save_path, cv2.cvtColor(result_img, cv2.COLOR_RGB2BGR))
     print(f"保存结果图像到 {save_path}")
 
-    save_path_with_boxes = 'color_distribution_regionGrowing/result_image_with_boxes1.png'
+    save_path_with_boxes = 'color_distribution_regionGrowing/result_image_with_boxes0.png'
     cv2.imwrite(save_path_with_boxes, img_rgb)
     print(f"保存带边框的结果图像到 {save_path_with_boxes}")
 
@@ -225,6 +225,6 @@ def keep_largest_components(image_path, top_colors_n=5, largest_components_n=10,
 
 capture_screen()
 
-image_path = 'color_distribution_regionGrowing/screenshot1.png'
+image_path = 'color_distribution_regionGrowing/screenshot0.png'
 
 keep_largest_components(image_path)
