@@ -72,36 +72,21 @@ def apply_color_clustering(image_path, n_clusters=3):
 
     return clustered_img
 
-def find_all_connected_components(img, color):
-    start_time = time.time()
-    height, width = img.shape[:2]
-    components = []
-    processed_pixels = set()
-
-    print(f"查找颜色 {color} 的连通域...")
-    mask = np.zeros(img.shape[:2], np.uint8)
-    mask[np.all(img == color, axis=-1)] = 1
-
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
-
-    for label in range(1, num_labels):
-        component_mask = (labels == label).astype(np.uint8) * 255
-        pixels = np.column_stack(np.where(labels == label))
-
-        # 检查像素是否已经处理过
-        pixel_tuple = tuple(map(tuple, pixels))
-        if any(p in processed_pixels for p in pixel_tuple):
-            continue
-
-        components.append((stats[label, cv2.CC_STAT_AREA], component_mask, stats[label], pixels))
-        processed_pixels.update(pixel_tuple)
-
-    end_time = time.time()
-    print(f"找到了 {len(components)} 个连通域，耗时 {end_time - start_time:.2f} 秒")
-    return components
+def find_all_connected_components(color_coords):
+    all_connected_components = []
+    for color, coordinates in color_coords.items():
+        visited = set()
+        print(f"处理颜色 {color} 的像素点，总共有 {len(coordinates)} 个像素点")
+        for coord in coordinates:
+            if coord not in visited:
+                component_info = dfs(coord[0], coord[1], visited, set(coordinates))
+                print(f"找到一个连通域，面积为 {component_info[0]}，边界框为 {component_info[2]['bbox']}")
+                all_connected_components.append(component_info)
+    print(f"总共找到 {len(all_connected_components)} 个连通域")
+    return all_connected_components
 
 def draw_bounding_box(img, stats, color=(0, 255, 0)):
-    x, y, w, h = stats[:4]
+    x, y, w, h = stats['bbox']
     cv2.rectangle(img, (x, y), (x + w, y + h), color, 2)
     print(f"绘制边框：x={x}, y={y}, w={w}, h={h}")
 
@@ -138,7 +123,7 @@ def merge_components(components):
             if id(component2) in used:
                 i += 1
                 continue
-            if is_similar_color(component1[2][4:7], component2[2][4:7]) and are_adjacent(component1[3], component2[3]):
+            if is_similar_color(component1[2]['bbox'][2:], component2[2]['bbox'][2:]) and are_adjacent(component1[1], component2[1]):
                 merged.append(component2)
                 used.add(id(component2))
                 components.pop(i)
@@ -148,24 +133,21 @@ def merge_components(components):
 
         if len(merged) > 1:
             merged_area = sum(comp[0] for comp in merged)
-            merged_mask = np.zeros_like(merged[0][1])
+            merged_mask = np.zeros_like(np.array(merged[0][1]))
             merged_pixels = []
             for comp in merged:
-                print(f"正在合并的掩码大小: {merged_mask.shape}, {comp[1].shape}, 类型: {merged_mask.dtype}, {comp[1].dtype}")
-                if merged_mask.shape == comp[1].shape and merged_mask.dtype == comp[1].dtype:
-                    merged_mask = cv2.bitwise_or(merged_mask, comp[1])
+                print(f"正在合并的掩码大小: {merged_mask.shape}, {np.array(comp[1]).shape}, 类型: {merged_mask.dtype}, {np.array(comp[1]).dtype}")
+                if merged_mask.shape == np.array(comp[1]).shape and merged_mask.dtype == np.array(comp[1]).dtype:
+                    merged_mask = cv2.bitwise_or(merged_mask, np.array(comp[1]))
                 else:
-                    print(f"掩码大小或类型不匹配: {merged_mask.shape}, {comp[1].shape}, {merged_mask.dtype}, {comp[1].dtype}")
+                    print(f"掩码大小或类型不匹配: {merged_mask.shape}, {np.array(comp[1]).shape}, {merged_mask.dtype}, {np.array(comp[1]).dtype}")
                     continue
-                merged_pixels.extend(comp[3])
+                merged_pixels.extend(comp[1])
             merged_stats = merged[0][2].copy()
-            merged_stats[cv2.CC_STAT_AREA] = merged_area
+            merged_stats['area'] = merged_area
             x_coords, y_coords = zip(*merged_pixels)
-            merged_stats[cv2.CC_STAT_LEFT] = min(x_coords)
-            merged_stats[cv2.CC_STAT_TOP] = min(y_coords)
-            merged_stats[cv2.CC_STAT_WIDTH] = max(x_coords) - min(x_coords) + 1
-            merged_stats[cv2.CC_STAT_HEIGHT] = max(y_coords) - min(y_coords) + 1
-            merged_components.append((merged_area, merged_mask, merged_stats, np.array(merged_pixels)))
+            merged_stats['bbox'] = (min(x_coords), min(y_coords), max(x_coords) - min(x_coords) + 1, max(y_coords) - min(y_coords) + 1)
+            merged_components.append((merged_area, merged_pixels, merged_stats))
             print(f"合并了 {merge_count} 个连通域，总面积为 {merged_area}")
         else:
             merged_components.append(component1)
@@ -174,11 +156,31 @@ def merge_components(components):
     print(f"合并后剩余 {len(merged_components)} 个连通域，耗时 {end_time - start_time:.2f} 秒")
     return merged_components
 
+def dfs(x, y, visited, coordinates):
+    stack = [(x, y)]
+    component = []
+    min_x = min_y = float('inf')
+    max_x = max_y = float('-inf')
+    while stack:
+        cx, cy = stack.pop()
+        if (cx, cy) not in visited:
+            visited.add((cx, cy))
+            component.append((cx, cy))
+            min_x, max_x = min(min_x, cx), max(max_x, cx)
+            min_y, max_y = min(min_y, cy), max(max_y, cy)
+            # 检查所有四个方向（上，下，左，右）的相邻像素
+            for nx, ny in [(cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)]:
+                if (nx, ny) in coordinates and (nx, ny) not in visited:
+                    stack.append((nx, ny))
+    area = len(component)
+    bbox = (min_y, min_x, max_y - min_y + 1, max_x - min_x + 1)  # 修正宽高计算顺序
+    return area, component, {'bbox': bbox, 'area': area}
+
 def keep_largest_components(image_path, top_colors_n=5, largest_components_n=10, background_color=(0, 0, 0)):
     overall_start_time = time.time()
 
     # 对图像进行颜色聚类
-    clustered_img = apply_color_clustering(image_path, n_clusters=3)
+    clustered_img = apply_color_clustering(image_path, n_clusters=2)
 
     # 将聚类后的图像保存以便检查
     cv2.imwrite('color_distribution_regionGrowing/clustered_image.png', cv2.cvtColor(clustered_img, cv2.COLOR_RGB2BGR))
@@ -187,11 +189,7 @@ def keep_largest_components(image_path, top_colors_n=5, largest_components_n=10,
     # 获取聚类后的图像中的前 N 种颜色及其坐标
     top_colors, color_coords = get_top_colors_with_coordinates('color_distribution_regionGrowing/clustered_image.png', top_colors_n)
     img_rgb = clustered_img
-    all_components = []
-
-    for color, _ in top_colors:
-        components = find_all_connected_components(img_rgb, color)
-        all_components.extend(components)
+    all_components = find_all_connected_components(color_coords)
 
     # 全图范围内合并连通域
     merged_components = merge_components(all_components)
@@ -204,10 +202,11 @@ def keep_largest_components(image_path, top_colors_n=5, largest_components_n=10,
     for i in range(3):
         result_img[:, :, i] = background_color[i]
 
-    for _, component_mask, stats, _ in largest_components:
-        print(f"处理连通域，面积为 {stats[cv2.CC_STAT_AREA]}")
+    for _, component_pixels, stats in largest_components:
+        print(f"处理连通域，面积为 {stats['area']}")
         temp_mask = np.zeros_like(combined_mask)
-        temp_mask[np.where(component_mask == 255)] = 255
+        for (r, c) in component_pixels:
+            temp_mask[r, c] = 255
         combined_mask = cv2.bitwise_or(combined_mask, temp_mask)
         draw_bounding_box(img_rgb, stats)
 
