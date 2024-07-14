@@ -309,6 +309,16 @@ distance=RGB三值作差后分别平方的和开根号=tolerance
 
 ![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes3.png)
 
+其他实例:
+
+![](./data/doc/color_distribution_regionGrowing/screenshot4.png)
+
+![](./data/doc/color_distribution_regionGrowing/clustered_image4.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image4.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes4.png)
+
 我们可以看到对于颜色的分割还是十分精准的, 因为我设置分类颜色为2类, 所以颜色会比较单一, 但是可以调整参数来实现不同目标.
 
 
