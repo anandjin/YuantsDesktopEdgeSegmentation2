@@ -327,5 +327,39 @@ distance=RGB三值作差后分别平方的和开根号=tolerance
 
 (注意: 如果规定的颜色分类越少那么其实对于分区来说更容易, 但是过低的话会导致很多原本差别很大的颜色归为一类, 过高的话又会导致有很多零星的连通域, 测试后人为3是个不错的值. 当然分类越少, 运行时间也会越快.
 
+2024-7-16
+
+对于这些分区, 采用了不同颜色的框来对它们进行表示
+
+包含与被包含关系:
+
+红色>橙色>黄色>绿色>青色>蓝色>紫色>黑色>白色>灰色
+
+is_contained函数:
+
+用来判断两个框的包含和被包含关系
+
+assign_color:
+
+根据上述的规则对框进行正确的绘画
+
+具体呈现:
+
+![](./data/doc/color_distribution_regionGrowing/screenshot5.png)
+
+![](./data/doc/color_distribution_regionGrowing/clustered_image5.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image5.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes5.png)
+
+从上图中我们可以看出, 该程序已经可以正确显示出框的包含和被包含关系(用于注意力机制)
+
+上述实验在进行时因为为了方便实验, 所以调小了top_colors_n和n_clusters的值, n_clusters值越大越精确, 但是所需时间也会更久.
+
+
+
+目前该程序的结果十分准确, 但在查找和合并连通域时时间较长(n_clusters值大)
+
 ## 5. 联系信息
 
