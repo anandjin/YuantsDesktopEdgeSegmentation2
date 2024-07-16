@@ -158,5 +158,208 @@ python edge.py
 
 现在该项目对于两者的识别适用于边缘较为分散的情况, 但是准确度较之前有了很大的提高
 
+2024-7-12
+
+尝试不同的方法对图像进行以颜色为基础的图像分割
+
+阈值转换法:
+
+color_distribution_thresholding.py
+
+![](./data/doc/color_distribution_thresholding/screenshot1.png)
+
+在此文件中使用了阈值转换的方法对图像进行分割
+
+对截图先进行颜色空间的转换(HSV：色调、饱和度、亮度)
+
+![](./data/doc/color_distribution_thresholding/output_image_hsv1.jpg)
+
+而后作为测试, 将所有绿色的像素提取出来
+
+![](./data/doc/color_distribution_thresholding/output_mask1.jpg)
+
+我们可以看出提取的位置还是比较准确的, 下面是合并完之后的结果
+
+![](./data/doc/color_distribution_thresholding/output_mask_result1.jpg)
+
+但是阈值通常是人为设计的, 所以不能根据每张图片来变化阈值
+
+```python
+lower_bound = np.array([35, 100, 100])  # 示例值，需要根据实际情况调整
+upper_bound = np.array([85, 255, 255])  # 示例值，需要根据实际情况调整
+```
+
+那么我们考虑优化此算法或将其替换.
+
+下面采用直方图分析法
+
+color_distribution_histogram.py
+
+在此文件中使用了直方图分析法对图像进行分割
+
+直方图分析法是在阈值转换法的基础上改进的方法,图像转换为HSV颜色空间后,计算色调直方图,找到直方图的峰值,例子中我选择的是前十的峰值, 合并完这些掩码之后,再应用到原始的图像上
+
+![](./data/doc/color_distribution_histogram/screenshot1.png)
+
+![](./data/doc/color_distribution_histogram/output_image_hsv1.jpg)
+
+![](./data/doc/color_distribution_histogram/output_mask1.jpg)
+
+![](./data/doc/color_distribution_histogram/output_mask_result1.jpg)
+
+像使用阈值转换法一样对图像进行处理后, 从上图中可以看出已经将直方图中前十的色调选出并合并到原图. 但是此法还是有不小的局限性, 因为HSV的色调不能显示所有的颜色, 比如:
+
+1. **白色**：在HSV中，白色的饱和度为0，但是明度为最大值，这使得白色在该模型中不太容易定义
+2. **黑色**：类似地，黑色的饱和度也为0，但明度为最小值，这也让黑色在HSV中不太容易描述
+3. **灰色**：灰色是介于白色和黑色之间的中间色，它在HSV中的表示也可能不够准确
+4. **粉色**：粉色是一种柔和的颜色，它可能需要通过多个色相值来描述，因为它不是单一的色相
+5. **棕色**：棕色是由多种颜色混合而成，这种混合色在HSV中可能需要多个参数来描述
+
+所以, 此方法存在一定局限性
+
+又尝试了Region Growing Image Segmentation方法
+
+先获取截图的10种像素最多的颜色以及它们的坐标, 对每种颜色，使用OpenCV的`connectedComponentsWithStats`函数查找连通域。记录每个连通域的大小、掩码、统计信息（包括位置和尺寸）。按连通域大小排序，并选择前10个最大的连通域。使用OpenCV绘制边界框。保存结果图像。
+
+关键点:
+
+为了解决内存分配问题:
+
+**逐块处理图像**：在 `find_all_connected_components` 函数中，将图像分割成更小的块（如 512x512），逐块处理以减少内存占用。
+
+**逐步合并结果**：在主循环中，逐步处理每个块的连通域，并直接应用于主掩码。
+
+**避免大数组分配**：不再一次性创建大尺寸的 `full_component_mask`，而是在主循环中处理块级别的连通域。
+
+实例如下:
+
+![](./data/doc/color_distribution_regionGrowing/screenshot1.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image1.png)
+
+因为内存的原因, 所以将本来可能大的连通域分割成小的区域所以导致大块的颜色连通域不完整, 这是需要进一步改进的
+
+2024-7-13 to 2024-7-14
+
+起初将图像分割成更小的块（如 512x512），逐块处理以减少内存占用.
+
+这样确实可以防止内存占用过大而导致程序无法正常运行.
+
+但是, 这样同样会导致本来颜色一致的连通域被分割成了小块. 如上图所示.
+
+并且用框框住的连通域也会相互交叉, 不能达到分割的目的, 如下图所示:
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes1.png)
+
+而后为了改善这种情况对原有的代码进行了优化:
+
+1. 捕获屏幕图像
+2. 获取图像中的主要颜色和坐标
+3. 对图像进行颜色聚类
+
+使用K-means聚类算法对图像进行颜色聚类，将图像的颜色分为`n_clusters`类. 
+
+这样可以使得颜色不同但相似的颜色归类为一种颜色. 从而减少颜色的种类, 减小连通域的数量
+
+n_clusters越大, 那么各个颜色的分离度就越高, 颜色种类就越多, 反之各个颜色的分离度就越低, 颜色种类就越少
+
+4. 查找特定颜色的连通域
+
+在此查找时, 我们是对全图范围内进行查找, 因为分块查找的话会导致有的连通域被分割从而使得连通域变小
+
+5. 判断两个连通域是否相邻
+6. 判断两个颜色是否相似
+
+在这里, 我们设置了is_similar_color函数用来判断颜色是否相近
+
+原理:
+
+假设有两个颜色，`color1 = (255, 0, 0)`（红色）和 `color2 = (250, 5, 5)`（稍微偏暗的红色）。我们计算它们之间的欧氏距离：
+
+distance=RGB三值作差后分别平方的和开根号=tolerance
+
+8.  合并相邻的连通域(根据相似性)
+9. 保留图像中最大的连通域, 并绘制边框
+
+效果如下:
+
+我们可以看到, 此种方法的分割表现十分良好, 但是有一个问题, 就是在寻找连通域时会消耗巨大内存导致无法执行完程序.
+
+![](./data/doc/color_distribution_regionGrowing/screenshot2.png)
+
+![](./data/doc/color_distribution_regionGrowing/clustered_image2.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image2.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes2.png)
+
+所以我们需要对找连通域的操作进行优化而又不能使用分块操作, 因为分块后连通域会变小而且由于分块像素的位置会发生变化, 需要额外调整, 但是效果并不好, 会出现和原图像素不重叠的情况
+
+在寻找连通域时使用深度优先搜索, 这样可以避免占用内存过大而导致程序崩溃.
+
+这样做的前提是已经知道了所需颜色的所有坐标.
+
+那么效果如下:
+
+![](./data/doc/color_distribution_regionGrowing/screenshot3.png)
+
+![](./data/doc/color_distribution_regionGrowing/clustered_image3.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image3.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes3.png)
+
+其他实例:
+
+![](./data/doc/color_distribution_regionGrowing/screenshot4.png)
+
+![](./data/doc/color_distribution_regionGrowing/clustered_image4.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image4.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes4.png)
+
+我们可以看到对于颜色的分割还是十分精准的, 因为我设置分类颜色为2类, 所以颜色会比较单一, 但是可以调整参数来实现不同目标.
+
+
+
+目前还需完善区域的包含和被包含关系, 用于注意力机制. 运行时长有些长, 可以进一步优化.
+
+(注意: 如果规定的颜色分类越少那么其实对于分区来说更容易, 但是过低的话会导致很多原本差别很大的颜色归为一类, 过高的话又会导致有很多零星的连通域, 测试后人为3是个不错的值. 当然分类越少, 运行时间也会越快.
+
+2024-7-16
+
+对于这些分区, 采用了不同颜色的框来对它们进行表示
+
+包含与被包含关系:
+
+红色>橙色>黄色>绿色>青色>蓝色>紫色>黑色>白色>灰色
+
+is_contained函数:
+
+用来判断两个框的包含和被包含关系
+
+assign_color:
+
+根据上述的规则对框进行正确的绘画
+
+具体呈现:
+
+![](./data/doc/color_distribution_regionGrowing/screenshot5.png)
+
+![](./data/doc/color_distribution_regionGrowing/clustered_image5.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image5.png)
+
+![](./data/doc/color_distribution_regionGrowing/result_image_with_boxes5.png)
+
+从上图中我们可以看出, 该程序已经可以正确显示出框的包含和被包含关系(用于注意力机制)
+
+上述实验在进行时因为为了方便实验, 所以调小了top_colors_n和n_clusters的值, n_clusters值越大越精确, 但是所需时间也会更久.
+
+
+
+目前该程序的结果十分准确, 但在查找和合并连通域时时间较长(n_clusters值大)
+
 ## 5. 联系信息
 
