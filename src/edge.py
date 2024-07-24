@@ -526,19 +526,19 @@ def main():
     # # Step : extract text and icons
     # new_text_icon_info = extract_text_and_icons(screenshot, text_icon_positions)
 
-    # Step 7: add label to straight lines
+    # Step 6: add label to straight lines
     straight_lines_info = add_label_to_straight_lines_info(straight_line_positions)
 
-    # Step 8: label natural pics
+    # Step 7: label natural pics
     red_boxes_info = add_label_boxes_info(irregular_large_positions)
 
     # Step : get edge_map info
     edge_info = edge_map_to_info(edge_map)
 
-    # Step 9: merge 4 info and get pic
+    # Step 8: merge 4 info and get pic
     merged_info = merge_info2(screenshot, straight_lines_info, red_boxes_info)
 
-    # Step 10: Save merged_info as a visualization image
+    # Step 9: Save merged_info as a visualization image
     save_visualization_image2(merged_info, "edge/labeled_screenshot0.png")
     print("Merged info saved as 'labeled_screenshot0.png'")
 
