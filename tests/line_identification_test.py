@@ -13,7 +13,7 @@ screen_np = np.array(screen)
 screen_np = cv2.cvtColor(screen_np, cv2.COLOR_RGB2BGR)
 
 # 保存截屏图像
-cv2.imwrite('screenshot.jpg', screen_np)
+cv2.imwrite('lines_identification/screenshot.jpg', screen_np)
 
 # 使用截屏图像进行处理
 gray = cv2.cvtColor(screen_np, cv2.COLOR_BGR2GRAY)
@@ -40,4 +40,4 @@ cv2.line(screen_np, (x[0], int(y[0])), (x[1], int(y[1])), (0, 0, 255), 2)
 
 
 # 保存处理后的截屏图像
-cv2.imwrite('processed_screenshot.jpg', screen_np)
+cv2.imwrite('lines_identification/processed_screenshot.jpg', screen_np)

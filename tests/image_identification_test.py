@@ -13,7 +13,7 @@ screenshot = np.array(screenshot)
 screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)
 
 # 读取已知图片列表
-templates = ['images/image3.png', 'images/image4.png']
+templates = ['images_identification/image3.png', 'images_identification/image4.png']
 
 # 转换已知图片为灰度图
 gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
@@ -41,7 +41,7 @@ for (x1, y1, x2, y2) in all_positions:
 
 
 # 保存结果图像
-cv2.imwrite('result_screenshot.jpg', screenshot)
+cv2.imwrite('images_identification/result_screenshot.jpg', screenshot)
 
 # 输出匹配的位置信息
 for position in all_positions:
